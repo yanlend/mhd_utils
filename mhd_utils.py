@@ -197,7 +197,7 @@ def write_mhd_file(mhdfile, data, **meta_dict):
     # Tags that need conversion of list to string
     tags = ['ElementSpacing', 'Offset', 'DimSize', 'CenterOfRotation', 'TransformMatrix']
     for tag in tags:
-        if tag in meta_dict.keys():
+        if tag in meta_dict.keys() and not isinstance(meta_dict[tag], str):
             meta_dict[tag] = ' '.join([str(i) for i in meta_dict[tag]])
     write_meta_header(mhdfile, meta_dict)
 
