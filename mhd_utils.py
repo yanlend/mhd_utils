@@ -63,28 +63,20 @@ def load_raw_data_with_mhd(filename):
     # print(dim)
     # print(meta_dict['ElementType'])
     if meta_dict['ElementType'] == 'MET_FLOAT':
-        array_string = 'f'
         np_type = np.float32
     elif meta_dict['ElementType'] == 'MET_DOUBLE':
-        array_string = 'd'
         np_type = np.float64
     elif meta_dict['ElementType'] == 'MET_CHAR':
-        array_string = 'b'
         np_type = np.byte
     elif meta_dict['ElementType'] == 'MET_UCHAR':
-        array_string = 'B'
         np_type = np.ubyte
     elif meta_dict['ElementType'] == 'MET_SHORT':
-        array_string = 'h'
         np_type = np.short
     elif meta_dict['ElementType'] == 'MET_USHORT':
-        array_string = 'H'
         np_type = np.ushort
     elif meta_dict['ElementType'] == 'MET_INT':
-        array_string = 'i'
         np_type = np.int32
     elif meta_dict['ElementType'] == 'MET_UINT':
-        array_string = 'I'
         np_type = np.uint32
     else:
         raise NotImplementedError("ElementType " + meta_dict['ElementType'] + " not understood.")
