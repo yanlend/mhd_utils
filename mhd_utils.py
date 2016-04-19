@@ -8,7 +8,7 @@
 
 from __future__ import division, print_function
 import os
-import numpy
+import numpy as np
 import array
 
 
@@ -64,46 +64,45 @@ def load_raw_data_with_mhd(filename):
     # print(meta_dict['ElementType'])
     if meta_dict['ElementType'] == 'MET_FLOAT':
         array_string = 'f'
-        numpy_type = numpy.float32
+        np_type = np.float32
     elif meta_dict['ElementType'] == 'MET_DOUBLE':
         array_string = 'd'
-        numpy_type = numpy.float64
+        np_type = np.float64
     elif meta_dict['ElementType'] == 'MET_CHAR':
         array_string = 'b'
-        numpy_type = numpy.byte
+        np_type = np.byte
     elif meta_dict['ElementType'] == 'MET_UCHAR':
         array_string = 'B'
-        numpy_type = numpy.ubyte
+        np_type = np.ubyte
     elif meta_dict['ElementType'] == 'MET_SHORT':
         array_string = 'h'
-        numpy_type = numpy.short
+        np_type = np.short
     elif meta_dict['ElementType'] == 'MET_USHORT':
         array_string = 'H'
-        numpy_type = numpy.ushort
+        np_type = np.ushort
     elif meta_dict['ElementType'] == 'MET_INT':
         array_string = 'i'
-        numpy_type = numpy.int32
+        np_type = np.int32
     elif meta_dict['ElementType'] == 'MET_UINT':
         array_string = 'I'
-        numpy_type = numpy.uint32
+        np_type = np.uint32
     else:
         raise NotImplementedError("ElementType " + meta_dict['ElementType'] + " not understood.")
     arr = list(meta_dict['DimSize'])
     # print(arr)
-    volume = numpy.prod(arr[0:dim - 1])
+    volume = np.prod(arr[0:dim - 1])
     # print(volume)
     pwd = os.path.split(filename)[0]
     if pwd:
         data_file = pwd + '/' + meta_dict['ElementDataFile']
     else:
         data_file = meta_dict['ElementDataFile']
-    # print(data_file)
-    fid = open(data_file, 'rb')
-    binvalues = array.array(array_string)
-    binvalues.fromfile(fid, volume * arr[dim - 1] * element_channels)
-    fid.close()
-    data = numpy.array(binvalues, numpy_type)
-    data = numpy.reshape(data, (arr[dim - 1], volume, element_channels))
+
+    shape = (arr[dim - 1], volume, element_channels)
+    with open(data_file,'rb') as fid:
+        data = np.fromfile(fid, count=np.prod(shape),dtype = np_type)
+    data.shape = shape
+
     # Begin 3D fix
     arr.reverse()
     if element_channels > 1:
@@ -111,6 +110,7 @@ def load_raw_data_with_mhd(filename):
     else:
         data = data.reshape(arr)
     # End 3D fix
+    
     return (data, meta_dict)
 
 
@@ -136,17 +136,17 @@ def dump_raw_data(filename, data, dsize, element_channels=1):
     """ Write the data into a raw format file. Big endian is always used. """
     data = data.reshape(dsize[0], -1, element_channels)
     rawfile = open(filename, 'wb')
-    if data.dtype == numpy.float32:
+    if data.dtype == np.float32:
         array_string = 'f'
-    elif data.dtype == numpy.double or data.dtype == numpy.float64:
+    elif data.dtype == np.double or data.dtype == np.float64:
         array_string = 'd'
-    elif data.dtype == numpy.short:
+    elif data.dtype == np.short:
         array_string = 'h'
-    elif data.dtype == numpy.ushort:
+    elif data.dtype == np.ushort:
         array_string = 'H'
-    elif data.dtype == numpy.int32:
+    elif data.dtype == np.int32:
         array_string = 'i'
-    elif data.dtype == numpy.uint32:
+    elif data.dtype == np.uint32:
         array_string = 'I'
     else:
         raise NotImplementedError("ElementType " + str(data.dtype) + " not implemented.")
@@ -163,21 +163,21 @@ def write_mhd_file(mhdfile, data, **meta_dict):
     meta_dict['ObjectType'] = 'Image'
     meta_dict['BinaryData'] = 'True'
     meta_dict['BinaryDataByteOrderMSB'] = 'False'
-    if data.dtype == numpy.float32:
+    if data.dtype == np.float32:
         meta_dict['ElementType'] = 'MET_FLOAT'
-    elif data.dtype == numpy.double or data.dtype == numpy.float64:
+    elif data.dtype == np.double or data.dtype == np.float64:
         meta_dict['ElementType'] = 'MET_DOUBLE'
-    elif data.dtype == numpy.byte:
+    elif data.dtype == np.byte:
         meta_dict['ElementType'] = 'MET_CHAR'
-    elif data.dtype == numpy.uint8 or data.dtype == numpy.ubyte:
+    elif data.dtype == np.uint8 or data.dtype == np.ubyte:
         meta_dict['ElementType'] = 'MET_UCHAR'
-    elif data.dtype == numpy.short or data.dtype == numpy.int16:
+    elif data.dtype == np.short or data.dtype == np.int16:
         meta_dict['ElementType'] = 'MET_SHORT'
-    elif data.dtype == numpy.ushort or data.dtype == numpy.uint16:
+    elif data.dtype == np.ushort or data.dtype == np.uint16:
         meta_dict['ElementType'] = 'MET_USHORT'
-    elif data.dtype == numpy.int32:
+    elif data.dtype == np.int32:
         meta_dict['ElementType'] = 'MET_INT'
-    elif data.dtype == numpy.uint32:
+    elif data.dtype == np.uint32:
         meta_dict['ElementType'] = 'MET_UINT'
     else:
         raise NotImplementedError("ElementType " + str(data.dtype) + " not implemented.")
