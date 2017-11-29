@@ -140,6 +140,8 @@ def dump_raw_data(filename, data, dsize, element_channels=1):
         array_string = 'i'
     elif data.dtype == np.uint32:
         array_string = 'I'
+    elif data.dtype == np.uint8 or data.dtype == np.ubyte:
+        array_string = 'B'
     else:
         raise NotImplementedError("ElementType " + str(data.dtype) + " not implemented.")
     a = array.array(array_string)
