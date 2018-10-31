@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-
-#
 # Original Version: bjian 2008/10/27
 # 3-D extension:    PJackson 2013/06/06        
 # More datatypes, Multiple Channels, Python 3, ...: Peter Fischer
-#
 
 from __future__ import division, print_function
 import os
