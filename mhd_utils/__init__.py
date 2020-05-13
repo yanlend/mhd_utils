@@ -3,16 +3,23 @@
 # More datatypes, Multiple Channels, Python 3, ...: Peter Fischer
 
 from __future__ import division, print_function
-import os
+from typing import Dict, Tuple, Any
+from os import PathLike
+import sys
+from pathlib import Path
+
 import numpy as np
-import array
 
 
-def read_meta_header(filename):
-    """Return a dictionary of meta data from meta header file"""
-    fileIN = open(filename, "r")
-    line = fileIN.readline()
-
+def read_meta_header(filename: PathLike) -> Dict[str, Any]:
+    """
+    Return a dictionary of meta data from MHD meta header file
+    
+    :param filename: file of type .mhd that should be loaded
+    :returns: dictionary of meta data
+    """
+    
+    # Define tags
     meta_dict = {}
     tag_set = []
     tag_set.extend(['ObjectType', 'NDims', 'DimSize', 'ElementType', 'ElementDataFile', 'ElementNumberOfChannels'])
@@ -21,43 +28,49 @@ def read_meta_header(filename):
     tag_set.extend(['Comment', 'SeriesDescription', 'AcquisitionDate', 'AcquisitionTime', 'StudyDate', 'StudyTime'])
 
     tag_flag = [False] * len(tag_set)
-    while line:
-        tags = str.split(line, '=')
-        # print(tags[0])
-        for i in range(len(tag_set)):
-            tag = tag_set[i]
-            if (str.strip(tags[0]) == tag) and (not tag_flag[i]):
-                # print(tags[1])
-                content = str.strip(tags[1])
-                if tag in ['ElementSpacing', 'Offset', 'CenterOfRotation', 'TransformMatrix']:
-                    meta_dict[tag] = [float(s) for s in content.split()]
-                elif tag in ['NDims', 'ElementNumberOfChannels']:
-                    meta_dict[tag] = int(content)
-                elif tag in ['DimSize']:
-                    meta_dict[tag] = [int(s) for s in content.split()]
-                elif tag in ['BinaryData', 'BinaryDataByteOrderMSB', 'CompressedData']:
-                    if content == "True":
-                        meta_dict[tag] = True
+
+    with open(filename, "r") as fn:
+        line = fn.readline()
+        while line:
+            tags = str.split(line, '=')
+            # print(tags[0])
+            for i in range(len(tag_set)):
+                tag = tag_set[i]
+                if (str.strip(tags[0]) == tag) and (not tag_flag[i]):
+                    # print(tags[1])
+                    content = str.strip(tags[1])
+                    if tag in ['ElementSpacing', 'Offset', 'CenterOfRotation', 'TransformMatrix']:
+                        meta_dict[tag] = [float(s) for s in content.split()]
+                    elif tag in ['NDims', 'ElementNumberOfChannels']:
+                        meta_dict[tag] = int(content)
+                    elif tag in ['DimSize']:
+                        meta_dict[tag] = [int(s) for s in content.split()]
+                    elif tag in ['BinaryData', 'BinaryDataByteOrderMSB', 'CompressedData']:
+                        if content == "True":
+                            meta_dict[tag] = True
+                        else:
+                            meta_dict[tag] = False
                     else:
-                        meta_dict[tag] = False
-                else:
-                    meta_dict[tag] = content
-                tag_flag[i] = True
-        line = fileIN.readline()
-    # print(comment)
-    fileIN.close()
+                        meta_dict[tag] = content
+                    tag_flag[i] = True
+            line = fn.readline()
     return meta_dict
 
 
-def load_raw_data_with_mhd(filename):
+def load_raw_data_with_mhd(filename: PathLike) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Load a MHD file
+
+    :param filename: file of type .mhd that should be loaded
+    :returns: tuple with raw data and dictionary of meta data
+    """
     meta_dict = read_meta_header(filename)
     dim = int(meta_dict['NDims'])
     if "ElementNumberOfChannels" in meta_dict:
         element_channels = int(meta_dict["ElementNumberOfChannels"])
     else:
         element_channels = 1
-    # print(dim)
-    # print(meta_dict['ElementType'])
+
     if meta_dict['ElementType'] == 'MET_FLOAT':
         np_type = np.float32
     elif meta_dict['ElementType'] == 'MET_DOUBLE':
@@ -77,18 +90,17 @@ def load_raw_data_with_mhd(filename):
     else:
         raise NotImplementedError("ElementType " + meta_dict['ElementType'] + " not understood.")
     arr = list(meta_dict['DimSize'])
-    # print(arr)
+
     volume = np.prod(arr[0:dim - 1])
-    # print(volume)
-    pwd = os.path.split(filename)[0]
-    if pwd:
-        data_file = pwd + '/' + meta_dict['ElementDataFile']
-    else:
-        data_file = meta_dict['ElementDataFile']
+
+    pwd = Path(filename).parents[0]
+    data_file = Path(meta_dict['ElementDataFile'])
+    if not data_file.is_absolute():
+        data_file = pwd / data_file
 
     shape = (arr[dim - 1], volume, element_channels)
-    with open(data_file,'rb') as fid:
-        data = np.fromfile(fid, count=np.prod(shape),dtype = np_type)
+    with open(data_file,'rb') as f:
+        data = np.fromfile(f, count=np.prod(shape), dtype=np_type)
     data.shape = shape
 
     # Begin 3D fix
@@ -102,7 +114,13 @@ def load_raw_data_with_mhd(filename):
     return (data, meta_dict)
 
 
-def write_meta_header(filename, meta_dict):
+def write_meta_header(filename: PathLike, meta_dict: Dict[str, Any]):
+    """
+    Write the MHD meta header file
+
+    :param filename: file to write
+    :param meta_dict: dictionary of meta data in MetaImage format
+    """
     header = ''
     # do not use tags = meta_dict.keys() because the order of tags matters
     tags = ['ObjectType', 'NDims', 'BinaryData',
@@ -115,44 +133,21 @@ def write_meta_header(filename, meta_dict):
     for tag in tags:
         if tag in meta_dict.keys():
             header += '%s = %s\n' % (tag, meta_dict[tag])
-    f = open(filename, 'w')
-    f.write(header)
-    f.close()
+    with open(filename, 'w') as f:
+        f.write(header)
 
 
-def dump_raw_data(filename, data, dsize, element_channels=1):
-    """ Write the data into a raw format file. Big endian is always used. """
-    data = data.reshape(dsize[0], -1, element_channels)
-    rawfile = open(filename, 'wb')
-    if data.dtype == np.float32:
-        array_string = 'f'
-    elif data.dtype == np.double or data.dtype == np.float64:
-        array_string = 'd'
-    elif data.dtype == np.short:
-        array_string = 'h'
-    elif data.dtype == np.ushort:
-        array_string = 'H'
-    elif data.dtype == np.int32:
-        array_string = 'i'
-    elif data.dtype == np.uint32:
-        array_string = 'I'
-    elif data.dtype == np.uint8 or data.dtype == np.ubyte:
-        array_string = 'B'
-    else:
-        raise NotImplementedError("ElementType " + str(data.dtype) + " not implemented.")
-    a = array.array(array_string)
-    a.fromlist(list(data.ravel()))
-    # if is_little_endian():
-    #    a.byteswap()
-    a.tofile(rawfile)
-    rawfile.close()
+def write_mhd_file(filename: PathLike, data: np.ndarray, **meta_dict):
+    """
+    Write a meta file and the raw file
 
-
-def write_mhd_file(mhdfile, data, **meta_dict):
-    assert(mhdfile[-4:] == '.mhd')
+    :param filename: file to write
+    :param meta_dict: dictionary of meta data in MetaImage format
+    """
+    assert filename[-4:] == '.mhd' 
     meta_dict['ObjectType'] = 'Image'
     meta_dict['BinaryData'] = 'True'
-    meta_dict['BinaryDataByteOrderMSB'] = 'False'
+    meta_dict['BinaryDataByteOrderMSB'] = 'False' if sys.byteorder == 'little' else 'True'
     if data.dtype == np.float32:
         meta_dict['ElementType'] = 'MET_FLOAT'
     elif data.dtype == np.double or data.dtype == np.float64:
@@ -181,20 +176,23 @@ def write_mhd_file(mhdfile, data, **meta_dict):
     dsize.reverse()
     meta_dict['NDims'] = str(len(dsize))
     meta_dict['DimSize'] = dsize
-    meta_dict['ElementDataFile'] = os.path.split(mhdfile)[1].replace('.mhd',
-                                                                     '.raw')
+    meta_dict['ElementDataFile'] = str(Path(filename).name).replace('.mhd', '.raw')
+    print(str(Path(filename).name).replace('.mhd', '.raw'))
 
     # Tags that need conversion of list to string
     tags = ['ElementSpacing', 'Offset', 'DimSize', 'CenterOfRotation', 'TransformMatrix']
     for tag in tags:
         if tag in meta_dict.keys() and not isinstance(meta_dict[tag], str):
             meta_dict[tag] = ' '.join([str(i) for i in meta_dict[tag]])
-    write_meta_header(mhdfile, meta_dict)
+    write_meta_header(filename, meta_dict)
 
-    pwd = os.path.split(mhdfile)[0]
-    if pwd:
-        data_file = pwd + '/' + meta_dict['ElementDataFile']
-    else:
-        data_file = meta_dict['ElementDataFile']
+    # Compute absolute path to write to
+    pwd = Path(filename).parents[0]
+    data_file = Path(meta_dict['ElementDataFile'])
+    if not data_file.is_absolute():
+        data_file = pwd / data_file
 
-    dump_raw_data(data_file, data, dsize, element_channels=element_channels)
+    # Dump raw data
+    data = data.reshape(dsize[0], -1, element_channels)
+    with open(data_file, 'wb') as f:
+        data.tofile(f)

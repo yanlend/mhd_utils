@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='mhd-utils',
-    version='1.0',
+    version='2.0.0',
     packages=find_packages(),
     install_requires=["numpy"],
     license=open('LICENSE').read(),
