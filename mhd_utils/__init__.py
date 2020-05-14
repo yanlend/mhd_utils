@@ -93,7 +93,7 @@ def load_raw_data_with_mhd(filename: PathLike) -> Tuple[np.ndarray, Dict[str, An
 
     volume = np.prod(arr[0:dim - 1])
 
-    pwd = Path(filename).parents[0]
+    pwd = Path(filename).parents[0].resolve()
     data_file = Path(meta_dict['ElementDataFile'])
     if not data_file.is_absolute():
         data_file = pwd / data_file
@@ -195,7 +195,7 @@ def write_mhd_file(filename: PathLike, data: np.ndarray, **meta_dict):
     write_meta_header(filename, meta_dict)
 
     # Compute absolute path to write to
-    pwd = Path(filename).parents[0]
+    pwd = Path(filename).parents[0].resolve()
     data_file = Path(meta_dict['ElementDataFile'])
     if not data_file.is_absolute():
         data_file = pwd / data_file
