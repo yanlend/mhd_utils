@@ -103,6 +103,13 @@ def load_raw_data_with_mhd(filename: PathLike) -> Tuple[np.ndarray, Dict[str, An
         data = np.fromfile(f, count=np.prod(shape), dtype=np_type)
     data.shape = shape
 
+    # Adjust byte order in numpy array to match default system byte order
+    if 'BinaryDataByteOrderMSB' in meta_dict:
+        sys_byteorder_msb = sys.byteorder == 'big'
+        file_byteorder_ms =  meta_dict['BinaryDataByteOrderMSB']
+        if sys_byteorder_msb != file_byteorder_ms:
+            data = data.byteswap()
+
     # Begin 3D fix
     arr.reverse()
     if element_channels > 1:
@@ -139,7 +146,8 @@ def write_meta_header(filename: PathLike, meta_dict: Dict[str, Any]):
 
 def write_mhd_file(filename: PathLike, data: np.ndarray, **meta_dict):
     """
-    Write a meta file and the raw file
+    Write a meta file and the raw file.
+    The byte order of the raw file will always be in the byte order of the system. 
 
     :param filename: file to write
     :param meta_dict: dictionary of meta data in MetaImage format
